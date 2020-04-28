@@ -89,3 +89,10 @@ ENV/
 .ropeproject
 *.npy
 *.pkl
+
+
+# IDE
+.idea/
+
+# Django test database
+tests/db.sqlite3
