@@ -75,7 +75,7 @@ class OneToManyFieldsTests(APITestCase):
         response = self.client.post(url, data, format='json')
 
         # Prepare object for update
-        data = json.loads(response.content)
+        data = json.loads(response.content.decode('utf-8'))
         data['title'] = 'Book 1 update'
         chapter_1_pk = None
         chapter_3_pk = None
@@ -266,7 +266,7 @@ class OneToManyFieldsTests(APITestCase):
         response = self.client.post(url, data, format='json')
 
         # Prepare object for update
-        data = json.loads(response.content)
+        data = json.loads(response.content.decode('utf-8'))
         data['title'] = 'Book 1 update'
         chapter_1_pk = None
         chapter_3_pk = None
@@ -539,7 +539,7 @@ class OneToManyFieldsTests(APITestCase):
         response = self.client.post(url, data, format='json')
 
         # Prepare object for update
-        data = json.loads(response.content)
+        data = json.loads(response.content.decode('utf-8'))
         data['title'] = 'Book 1 update'
         chapter_1_pk = None
         chapter_3_pk = None
