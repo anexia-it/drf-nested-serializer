@@ -1,12 +1,12 @@
 from rest_framework import viewsets, permissions
 
-from .models import Book, Author, Chapter, Pages, AuthorBook, Category
-from .serializers import BookSerializer, AuthorSerializer, ChapterSerializer, PagesSerializer, AuthorBookSerializer, \
+from .models import Book, Author, Chapter, Page, AuthorBook, Category
+from .serializers import BookSerializer, AuthorSerializer, ChapterSerializer, PageSerializer, AuthorBookSerializer, \
     CategorySerializer
 
 
 class BaseViewSet(viewsets.ModelViewSet):
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [permissions.AllowAny]
 
 
 class BookViewSet(BaseViewSet):
@@ -24,9 +24,9 @@ class ChapterViewSet(BaseViewSet):
     serializer_class = ChapterSerializer
 
 
-class PagesViewSet(BaseViewSet):
-    queryset = Pages.objects.all()
-    serializer_class = PagesSerializer
+class PageViewSet(BaseViewSet):
+    queryset = Page.objects.all()
+    serializer_class = PageSerializer
 
 
 class AuthorBookViewSet(BaseViewSet):

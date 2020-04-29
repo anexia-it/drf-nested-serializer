@@ -31,7 +31,7 @@ class Chapter(models.Model):
     )
 
 
-class Pages(models.Model):
+class Page(models.Model):
     
     book = models.ForeignKey(
         "Book",
@@ -72,19 +72,25 @@ class Category(models.Model):
         related_name="categories",
     )
 
-
-class Author(models.Model):
-    
     name = models.CharField(
         max_length=100,
         blank=False,
         null=False,
     )
 
+
+class Author(models.Model):
+
     books = models.ManyToManyField(
         "Book",
         related_name="authors",
         through="AuthorBook"
+    )
+
+    name = models.CharField(
+        max_length=100,
+        blank=False,
+        null=False,
     )
 
 

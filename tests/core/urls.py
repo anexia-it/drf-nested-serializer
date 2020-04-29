@@ -24,7 +24,7 @@ router = routers.DefaultRouter()
 router.register(r'books', views.BookViewSet)
 router.register(r'authors', views.AuthorViewSet)
 router.register(r'chapters', views.ChapterViewSet)
-router.register(r'pages', views.PagesViewSet)
+router.register(r'pages', views.PageViewSet)
 router.register(r'authorbooks', views.AuthorBookViewSet)
 router.register(r'categories', views.CategoryViewSet)
 
