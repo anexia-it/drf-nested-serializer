@@ -65,11 +65,14 @@ class Category(models.Model):
         on_delete=models.CASCADE,
         related_name="child_categories",
         null=True,
+        blank=True,
     )
 
     books = models.ManyToManyField(
         "Book",
         related_name="categories",
+        null=True,
+        blank=True,
     )
 
     name = models.CharField(

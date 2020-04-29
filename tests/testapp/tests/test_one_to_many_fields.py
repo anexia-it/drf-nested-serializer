@@ -707,3 +707,85 @@ class OneToManyFieldsTests(APITestCase):
         self.assertTrue(Page.objects.filter(pk=chapter_2_page_3_pk).exists())
         self.assertTrue(Page.objects.filter(pk=page_1_pk).exists())
         self.assertTrue(Page.objects.filter(pk=page_3_pk).exists())
+
+    def test_adding_categories_with_children(self):
+        """
+        Tests that a nested serializer can add objects referred by a foreign key with self reference.
+        Multiple level nesting.
+        """
+        url = reverse('category-list')
+        data = {
+            "name": "Category 1",
+            "child_categories": [
+                {
+                    "name": "Category 2",
+                    "child_categories": [
+                        {
+                            "name": "Category 3",
+                            "child_categories": [],
+                        }
+                    ],
+                }
+            ]
+        }
+        response = self.client.post(url, data, format='json')
+
+        # Assert response
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(response.data['name'], 'Category 1')
+        self.assertEqual(response.data['child_categories'][0]['name'], 'Category 2')
+        self.assertEqual(response.data['child_categories'][0]['child_categories'][0]['name'], 'Category 3')
+
+        # Assert data
+        self.assertEqual(Category.objects.count(), 3)
+        self.assertTrue(Category.objects.filter(name='Category 1', parent=None).exists())
+        self.assertTrue(
+            Category.objects.filter(name='Category 2', parent=Category.objects.get(name='Category 1')).exists()
+        )
+        self.assertTrue(
+            Category.objects.filter(name='Category 3', parent=Category.objects.get(name='Category 2')).exists()
+        )
+
+    def test_update_categories_with_children(self):
+        """
+        Tests that a nested serializer can update objects referred by a foreign key with self reference.
+        Multiple level nesting.
+        """
+        url = reverse('category-list')
+        data = {
+            "name": "Category 1",
+            "child_categories": [
+                {
+                    "name": "Category 2",
+                    "child_categories": [
+                        {
+                            "name": "Category 3",
+                            "child_categories": [],
+                        }
+                    ],
+                }
+            ]
+        }
+        response = self.client.post(url, data, format='json')
+
+        data = json.loads(response.content.decode('utf-8'))
+
+        # Send update request
+        url = reverse('category-detail', kwargs={'pk': data['pk']})
+        response = self.client.put(url, data, format='json')
+
+        # Assert response
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data['name'], 'Category 1')
+        self.assertEqual(response.data['child_categories'][0]['name'], 'Category 2')
+        self.assertEqual(response.data['child_categories'][0]['child_categories'][0]['name'], 'Category 3')
+
+        # Assert data
+        self.assertEqual(Category.objects.count(), 3)
+        self.assertTrue(Category.objects.filter(name='Category 1', parent=None).exists())
+        self.assertTrue(
+            Category.objects.filter(name='Category 2', parent=Category.objects.get(name='Category 1')).exists()
+        )
+        self.assertTrue(
+            Category.objects.filter(name='Category 3', parent=Category.objects.get(name='Category 2')).exists()
+        )

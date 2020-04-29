@@ -4,7 +4,7 @@ from django_rest_nested_serializer import NestedSerializer
 from .models import Book, Author, Chapter, Page, AuthorBook, Category
 
 
-class ChapterPageSerializer(serializers.HyperlinkedModelSerializer):
+class ChapterPageSerializer(serializers.ModelSerializer):
     pk = serializers.IntegerField(read_only=False, required=False, allow_null=True)
 
     class Meta:
@@ -22,7 +22,7 @@ class BookChapterSerializer(NestedSerializer):
         one_to_many_fields = ['pages']
 
 
-class BookPageSerializer(serializers.HyperlinkedModelSerializer):
+class BookPageSerializer(serializers.ModelSerializer):
     pk = serializers.IntegerField(read_only=False, required=False, allow_null=True)
 
     class Meta:
@@ -30,7 +30,7 @@ class BookPageSerializer(serializers.HyperlinkedModelSerializer):
         fields = ['pk', 'url', 'content', 'chapter', 'order']
 
 
-class BookCategorySerializer(serializers.HyperlinkedModelSerializer):
+class BookCategorySerializer(serializers.ModelSerializer):
     class Meta:
         model = Category
         fields = ['pk', 'url', 'parent']
@@ -48,31 +48,36 @@ class BookSerializer(NestedSerializer):
         many_to_many_direct_fields = ['categories']
 
 
-class AuthorSerializer(serializers.HyperlinkedModelSerializer):
+class AuthorSerializer(serializers.ModelSerializer):
     class Meta:
         model = Author
         fields = ['pk', 'url', 'name', 'books']
 
 
-class ChapterSerializer(serializers.HyperlinkedModelSerializer):
+class ChapterSerializer(serializers.ModelSerializer):
     class Meta:
         model = Chapter
         fields = ['pk', 'url', 'title', 'book', 'order']
 
 
-class PageSerializer(serializers.HyperlinkedModelSerializer):
+class PageSerializer(serializers.ModelSerializer):
     class Meta:
         model = Page
         fields = ['pk', 'url', 'content', 'book', 'chapter', 'order']
 
 
-class AuthorBookSerializer(serializers.HyperlinkedModelSerializer):
+class AuthorBookSerializer(serializers.ModelSerializer):
     class Meta:
         model = AuthorBook
         fields = ['pk', 'url', 'author', 'book']
 
 
-class CategorySerializer(serializers.HyperlinkedModelSerializer):
+class CategorySerializer(NestedSerializer):
+    pk = serializers.IntegerField(read_only=False, required=False, allow_null=True)
+
     class Meta:
         model = Category
-        fields = ['pk', 'url', 'parent', 'books']
+        fields = ['pk', 'url', 'name', 'child_categories', 'books']
+        one_to_many_fields = ['child_categories']
+
+CategorySerializer._declared_fields['child_categories'] = CategorySerializer(many=True)
