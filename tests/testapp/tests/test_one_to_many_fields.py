@@ -708,7 +708,7 @@ class OneToManyFieldsTests(APITestCase):
         self.assertTrue(Page.objects.filter(pk=page_1_pk).exists())
         self.assertTrue(Page.objects.filter(pk=page_3_pk).exists())
 
-    def test_adding_categories_with_children(self):
+    def test_adding_categories_with_single_children(self):
         """
         Tests that a nested serializer can add objects referred by a foreign key with self reference.
         Multiple level nesting.
@@ -746,10 +746,10 @@ class OneToManyFieldsTests(APITestCase):
             Category.objects.filter(name='Category 3', parent=Category.objects.get(name='Category 2')).exists()
         )
 
-    def test_update_categories_with_children(self):
+    def test_update_categories_with_single_children(self):
         """
         Tests that a nested serializer can update objects referred by a foreign key with self reference.
-        Multiple level nesting.
+        Multiple level nesting. This tests tries only to send the same object again, so nothing should change.
         """
         url = reverse('category-list')
         data = {
@@ -788,4 +788,178 @@ class OneToManyFieldsTests(APITestCase):
         )
         self.assertTrue(
             Category.objects.filter(name='Category 3', parent=Category.objects.get(name='Category 2')).exists()
+        )
+
+    def test_adding_categories_with_multiple_children(self):
+        """
+        Tests that a nested serializer can add objects referred by a foreign key with self reference.
+        Multiple level nesting.
+        """
+        url = reverse('category-list')
+        data = {
+            "name": "Category 1",
+            "child_categories": [
+                {
+                    "name": "Category 11",
+                    "child_categories": [
+                        {
+                            "name": "Category 111",
+                            "child_categories": [],
+                        }
+                    ],
+                },
+                {
+                    "name": "Category 12",
+                    "child_categories": [
+                        {
+                            "name": "Category 121",
+                            "child_categories": [
+                                {
+                                    "name": "Category 1211",
+                                    "child_categories": [],
+                                },
+                                {
+                                    "name": "Category 1212",
+                                    "child_categories": [],
+                                }
+                            ],
+                        }
+                    ],
+                },
+                {
+                    "name": "Category 13",
+                    "child_categories": [],
+                }
+            ]
+        }
+        response = self.client.post(url, data, format='json')
+
+        # Assert response
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(response.data['name'], 'Category 1')
+        self.assertEqual(response.data['child_categories'][0]['name'], 'Category 11')
+        self.assertEqual(response.data['child_categories'][1]['name'], 'Category 12')
+        self.assertEqual(response.data['child_categories'][2]['name'], 'Category 13')
+        self.assertEqual(response.data['child_categories'][0]['child_categories'][0]['name'], 'Category 111')
+        self.assertEqual(response.data['child_categories'][1]['child_categories'][0]['name'], 'Category 121')
+        self.assertEqual(
+            response.data['child_categories'][1]['child_categories'][0]['child_categories'][0]['name'], 'Category 1211'
+        )
+        self.assertEqual(
+            response.data['child_categories'][1]['child_categories'][0]['child_categories'][1]['name'], 'Category 1212'
+        )
+
+        # Assert data
+        self.assertEqual(Category.objects.count(), 8)
+        self.assertTrue(Category.objects.filter(name='Category 1', parent=None).exists())
+        self.assertTrue(
+            Category.objects.filter(name='Category 11', parent=Category.objects.get(name='Category 1')).exists()
+        )
+        self.assertTrue(
+            Category.objects.filter(name='Category 12', parent=Category.objects.get(name='Category 1')).exists()
+        )
+        self.assertTrue(
+            Category.objects.filter(name='Category 13', parent=Category.objects.get(name='Category 1')).exists()
+        )
+        self.assertTrue(
+            Category.objects.filter(name='Category 111', parent=Category.objects.get(name='Category 11')).exists()
+        )
+        self.assertTrue(
+            Category.objects.filter(name='Category 121', parent=Category.objects.get(name='Category 12')).exists()
+        )
+        self.assertTrue(
+            Category.objects.filter(name='Category 1211', parent=Category.objects.get(name='Category 121')).exists()
+        )
+        self.assertTrue(
+            Category.objects.filter(name='Category 1212', parent=Category.objects.get(name='Category 121')).exists()
+        )
+
+    def test_update_categories_with_multiple_children(self):
+        """
+        Tests that a nested serializer can add objects referred by a foreign key with self reference.
+        Multiple level nesting. This tests tries only to send the same object again, so nothing should change.
+        """
+        url = reverse('category-list')
+        data = {
+            "name": "Category 1",
+            "child_categories": [
+                {
+                    "name": "Category 11",
+                    "child_categories": [
+                        {
+                            "name": "Category 111",
+                            "child_categories": [],
+                        }
+                    ],
+                },
+                {
+                    "name": "Category 12",
+                    "child_categories": [
+                        {
+                            "name": "Category 121",
+                            "child_categories": [
+                                {
+                                    "name": "Category 1211",
+                                    "child_categories": [],
+                                },
+                                {
+                                    "name": "Category 1212",
+                                    "child_categories": [],
+                                }
+                            ],
+                        }
+                    ],
+                },
+                {
+                    "name": "Category 13",
+                    "child_categories": [],
+                }
+            ]
+        }
+        response = self.client.post(url, data, format='json')
+
+        data = json.loads(response.content.decode('utf-8'))
+
+        # Send update request
+        url = reverse('category-detail', kwargs={'pk': data['pk']})
+        response = self.client.put(url, data, format='json')
+
+        # Assert response
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data['name'], 'Category 1')
+        self.assertEqual(response.data['child_categories'][0]['name'], 'Category 11')
+        self.assertEqual(response.data['child_categories'][1]['name'], 'Category 12')
+        self.assertEqual(response.data['child_categories'][2]['name'], 'Category 13')
+        self.assertEqual(response.data['child_categories'][0]['child_categories'][0]['name'], 'Category 111')
+        self.assertEqual(response.data['child_categories'][1]['child_categories'][0]['name'], 'Category 121')
+        self.assertEqual(
+            response.data['child_categories'][1]['child_categories'][0]['child_categories'][0]['name'], 'Category 1211'
+        )
+        self.assertEqual(
+            response.data['child_categories'][1]['child_categories'][0]['child_categories'][1]['name'], 'Category 1212'
+        )
+
+        # Assert data
+        self.assertEqual(Category.objects.count(), 8)
+        self.assertTrue(Category.objects.filter(name='Category 1', parent=None).exists())
+        self.assertTrue(
+            Category.objects.filter(name='Category 11', parent=Category.objects.get(name='Category 1')).exists()
+        )
+        self.assertTrue(
+            Category.objects.filter(name='Category 12', parent=Category.objects.get(name='Category 1')).exists()
+        )
+        self.assertTrue(
+            Category.objects.filter(name='Category 13', parent=Category.objects.get(name='Category 1')).exists()
+        )
+        self.assertTrue(
+            Category.objects.filter(name='Category 111', parent=Category.objects.get(name='Category 11')).exists()
+        )
+        self.assertTrue(
+            Category.objects.filter(name='Category 121', parent=Category.objects.get(name='Category 12')).exists()
+        )
+        self.assertTrue(
+            Category.objects.filter(name='Category 1211', parent=Category.objects.get(name='Category 121')).exists()
+        )
+        self.assertTrue(
+            Category.objects.filter(name='Category 1212', parent=Category.objects.get(name='Category 121')).exists()
         )
