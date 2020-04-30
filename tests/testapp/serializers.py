@@ -35,11 +35,11 @@ class BookCategorySerializer(NestedSerializer):
 
     class Meta:
         model = Category
-        fields = ['pk', 'url', 'name', 'child_categories']
-        one_to_many_fields = ['child_categories']
+        fields = ['pk', 'url', 'name', 'children']
+        one_to_many_fields = ['children']
 
 
-BookCategorySerializer._declared_fields['child_categories'] = BookCategorySerializer(many=True)
+BookCategorySerializer._declared_fields['children'] = BookCategorySerializer(many=True)
 
 
 class BookSerializer(NestedSerializer):
@@ -80,11 +80,12 @@ class AuthorBookSerializer(serializers.ModelSerializer):
 
 class CategorySerializer(NestedSerializer):
     pk = serializers.IntegerField(read_only=False, required=False, allow_null=True)
+    books = serializers.PrimaryKeyRelatedField(many=True, required=False, queryset=Book.objects.all())
 
     class Meta:
         model = Category
-        fields = ['pk', 'url', 'name', 'child_categories', 'books']
-        one_to_many_fields = ['child_categories']
+        fields = ['pk', 'url', 'name', 'children', 'books']
+        one_to_many_fields = ['children']
 
 
-CategorySerializer._declared_fields['child_categories'] = CategorySerializer(many=True)
+CategorySerializer._declared_fields['children'] = CategorySerializer(many=True)

@@ -8,7 +8,7 @@ __all__ = [
 ]
 
 
-class NestedSerializer(serializers.ModelSerializer):
+class BaseNestedSerializer(serializers.ModelSerializer):
     def _manage_one_to_many_assignment(
         self,
         instance,
@@ -97,12 +97,11 @@ class NestedSerializer(serializers.ModelSerializer):
 
                     if related_serializer:
                         self._manage_one_to_many_child(
-                            parent=instance,
+                            instance=instance,
                             child=related_object,
                             child_model=related_model,
                             child_serializer=related_serializer,
                             relation_name=relation_name,
-                            inverse_relation_name=inverse_relation_name,
                         )
 
                 related_errors.append({})
@@ -135,20 +134,12 @@ class NestedSerializer(serializers.ModelSerializer):
                 if rel_err == last_err:
                     break
 
-    def _manage_one_to_many_child(
-        self,
-        parent,
-        child,
-        child_serializer,
-        child_model,
-        relation_name,
-        inverse_relation_name,
-    ):
+    def _manage_one_to_many_child(self, instance, child, child_serializer, child_model, relation_name):
         """
         Outsourced update/creation of the child object to allow for custom behaviour in certain Serializers,
         e.g. SubTemplateGroupSerializer(special behaviour for nested bulk management of TemplateGroups within a
         Campaign)
-        :param parent:
+        :param instance:
         :param child:
         :param child_serializer:
         :param child_model:
@@ -158,21 +149,15 @@ class NestedSerializer(serializers.ModelSerializer):
         """
         if "pk" not in child:
             child_instance = child_serializer.create(validated_data=child)
-            # add the new child to the parent
-            getattr(parent, relation_name).add(child_instance)
+            getattr(instance, relation_name).add(child_instance)
         else:
             try:
-                child_instance = child_model.objects.get(
-                    pk=child["pk"], **{inverse_relation_name: parent}
-                )
-                child_serializer.update(
-                    instance=child_instance, validated_data=child,
-                )
+                child_instance = getattr(instance, relation_name).get(pk=child["pk"])
+                child_serializer.update(instance=child_instance, validated_data=child)
             except child_model.DoesNotExist:
                 child.pop("pk")
                 child_instance = child_serializer.create(validated_data=child)
-                # add the new child to the parent
-                getattr(parent, relation_name).add(child_instance)
+                getattr(instance, relation_name).add(child_instance)
 
     def _manage_many_to_one_assignment(
         self, related_object, related_model=None, related_serializer=None, errors=[],
@@ -237,7 +222,6 @@ class NestedSerializer(serializers.ModelSerializer):
         intermediate_relation_name=None,
         intermediate_inverse_relation_name=None,
         errors=None,
-        through=True,
     ):
         """
         Update previous relations (set null/blank or delete unwanted, depending on the related model.field definition),
@@ -260,48 +244,29 @@ class NestedSerializer(serializers.ModelSerializer):
             if "pk" in related_object:
                 related_object_pks.append(related_object["pk"])
 
-        if through:
-            # Update old related objects (set inverse_relation_name fields to null/blank or delete the objects)
-            inverse_field = [
-                field
-                for field in related_model._meta.fields
-                if field.name == intermediate_inverse_relation_name
-            ][0]
-        else:
-            for key, value in related_model._meta.fields_map.items():
-                if key == intermediate_inverse_relation_name:
-                    inverse_field = value
+        # Update old related objects (set inverse_relation_name fields to null/blank or delete the objects)
+        inverse_field = [
+            field
+            for field in related_model._meta.fields
+            if field.name == intermediate_inverse_relation_name
+        ][0]
 
         if inverse_field.null:
-            # unset (set blank) the inverse relation to all currently related_objects
+            # unset (set null) the inverse relation to all currently related_objects
             # not supposed to be kept (not specified in the request)
-            if through:
-                related_model.objects.filter(
-                    **{intermediate_inverse_relation_name: instance}
-                ).exclude(pk__in=related_object_pks).update(
-                    **{intermediate_inverse_relation_name: None}
-                )
-            else:
-                to_remove = getattr(instance, intermediate_relation_name).exclude(
-                    pk__in=related_object_pks,
-                )
-                if to_remove.count() > 0:
-                    getattr(instance, intermediate_relation_name).remove(to_remove)
+            related_model.objects.filter(
+                **{intermediate_inverse_relation_name: instance}
+            ).exclude(pk__in=related_object_pks).update(
+                **{intermediate_inverse_relation_name: None}
+            )
         elif inverse_field.blank:
             # unset (set blank) the inverse relation to all currently related_objects
             # not supposed to be kept (not specified in the request)
-            if through:
-                related_model.objects.filter(
-                    **{intermediate_inverse_relation_name: instance}
-                ).exclude(pk__in=related_object_pks).update(
-                    **{intermediate_inverse_relation_name: ""}
-                )
-            else:
-                to_remove = getattr(instance, intermediate_relation_name).exclude(
-                    pk__in=related_object_pks,
-                )
-                if to_remove.count() > 0:
-                    getattr(instance, intermediate_relation_name).remove(to_remove)
+            related_model.objects.filter(
+                **{intermediate_inverse_relation_name: instance}
+            ).exclude(pk__in=related_object_pks).update(
+                **{intermediate_inverse_relation_name: ""}
+            )
         else:
             # delete all currently related_objects
             # not supposed to be kept (not specified in the request)
@@ -316,73 +281,47 @@ class NestedSerializer(serializers.ModelSerializer):
         for related_object in related_objects:
             try:
                 related_object[intermediate_inverse_relation_name] = instance
-                if not through:
-                    related_object.pop(intermediate_inverse_relation_name)
 
                 if "pk" in related_object:
                     existing = related_model.objects.filter(
                         pk=related_object["pk"]
                     ).exists()
                 else:
-                    if through:
-                        existing = related_model.objects.filter(
-                            **{
-                                intermediate_relation_name: related_object[
-                                    intermediate_relation_name
-                                ],
-                                intermediate_inverse_relation_name: related_object[
-                                    intermediate_inverse_relation_name
-                                ],
-                            }
-                        ).exists()
-                    else:
-                        existing = related_model.objects.filter(
-                            **related_object
-                        ).exists()
+                    existing = related_model.objects.filter(
+                        **{
+                            intermediate_relation_name: related_object[
+                                intermediate_relation_name
+                            ],
+                            intermediate_inverse_relation_name: related_object[
+                                intermediate_inverse_relation_name
+                            ],
+                        }
+                    ).exists()
 
                 if not existing:
                     related_object_instance = related_model.objects.create(
                         **related_object
                     )
-
-                    if not through:
-                        getattr(instance, intermediate_relation_name).add(
-                            related_object_instance
-                        )
                 else:
                     try:
-                        if through:
-                            if "pk" in related_object:
-                                related_object_instance = related_model.objects.get(
-                                    pk=related_object["pk"]
-                                )
-                            else:
-                                related_object_instance = related_model.objects.filter(
-                                    **{
-                                        intermediate_relation_name: related_object[
-                                            intermediate_relation_name
-                                        ],
-                                        intermediate_inverse_relation_name: instance,
-                                    }
-                                ).first()
-
-                            related_serializer.update(
-                                instance=related_object_instance,
-                                validated_data=related_object,
+                        if "pk" in related_object:
+                            related_object_instance = related_model.objects.get(
+                                pk=related_object["pk"]
                             )
                         else:
-                            if "pk" in related_object:
-                                related_object_instance = related_model.objects.get(
-                                    pk=related_object["pk"]
-                                )
-                            else:
-                                related_object_instance = related_model.objects.filter(
-                                    **related_object
-                                ).first()
+                            related_object_instance = related_model.objects.filter(
+                                **{
+                                    intermediate_relation_name: related_object[
+                                        intermediate_relation_name
+                                    ],
+                                    intermediate_inverse_relation_name: instance,
+                                }
+                            ).first()
 
-                            getattr(instance, intermediate_relation_name).add(
-                                related_object_instance
-                            )
+                        related_serializer.update(
+                            instance=related_object_instance,
+                            validated_data=related_object,
+                        )
                     except related_model.DoesNotExist:
                         related_object.pop("pk")
                         related_serializer.create(validated_data=related_object)
@@ -548,48 +487,7 @@ class NestedSerializer(serializers.ModelSerializer):
 
         return m2m
 
-    def manage_assignments(self, validated_data, instance=None):
-        """
-        Remove the related data from validated_data and handle it separately
-        :param validated_data:
-        :param instance:
-        :return:
-        """
-        errors = {}
-        one_to_many_fields = {}
-        many_to_one_fields = {}
-        # many to many relations realized via custom intermediate "through" model
-        many_to_many_fields = {}
-        # many to many relations withouth "through" model (direct model association)
-        many_to_many_direct_fields = {}
-        one_to_one_fields = {}
-
-        if hasattr(self.Meta, "one_to_many_fields"):
-            for relation in self.Meta.one_to_many_fields:
-                if relation in validated_data:
-                    one_to_many_fields[relation] = validated_data.pop(relation)
-
-        if hasattr(self.Meta, "many_to_one_fields"):
-            for relation in self.Meta.many_to_one_fields:
-                if relation in validated_data:
-                    many_to_one_fields[relation] = validated_data.pop(relation)
-
-        if hasattr(self.Meta, "many_to_many_fields"):
-            for relation in self.Meta.many_to_many_fields:
-                if relation in validated_data:
-                    many_to_many_fields[relation] = validated_data.pop(relation)
-
-        if hasattr(self.Meta, "many_to_many_direct_fields"):
-            for relation in self.Meta.many_to_many_direct_fields:
-                if relation in validated_data:
-                    many_to_many_direct_fields[relation] = validated_data.pop(relation)
-
-        if hasattr(self.Meta, "one_to_one_fields"):
-            for relation in self.Meta.one_to_one_fields:
-                if relation in validated_data:
-                    one_to_one_fields[relation] = validated_data.pop(relation)
-
-        # many to one fields get processed before the instance
+    def process_many_to_one_fields(self, validated_data, many_to_one_fields, errors):
         relation_errors = []
         for relation_name, related_object in many_to_one_fields.items():
             related_model = self.fields[relation_name].Meta.model
@@ -603,16 +501,11 @@ class NestedSerializer(serializers.ModelSerializer):
             )
             validated_data[relation_name] = related_instance
 
-        if relation_errors:
-            errors[relation_name] = relation_errors
-            raise ValidationError(errors, code="invalid")
+            if relation_errors:
+                errors[relation_name] = relation_errors
+                raise ValidationError(errors, code="invalid")
 
-        if instance:
-            instance = super(NestedSerializer, self).update(instance, validated_data)
-        else:
-            instance = super(NestedSerializer, self).create(validated_data)
-
-        # one to many fields get processed before the instance
+    def process__one_to_many_fields(self, instance, one_to_many_fields, errors):
         relation_errors = []
         for relation_name, related_objects in one_to_many_fields.items():
             related_model = getattr(self.Meta.model, relation_name).rel.related_model
@@ -632,12 +525,12 @@ class NestedSerializer(serializers.ModelSerializer):
                 errors=relation_errors,
             )
 
-        if relation_errors:
-            errors[relation_name] = relation_errors
+            if relation_errors:
+                errors[relation_name] = relation_errors
 
-        # many to many (via intermediate "trough" model) fields get processed before the instance
+    def process_many_to_many_through_fields(self, instance, many_to_many_through_fields, errors):
         relation_errors = []
-        for relation_name, related_objects in many_to_many_fields.items():
+        for relation_name, related_objects in many_to_many_through_fields.items():
             model_meta = getattr(self.Meta.model, relation_name)
             related_model = model_meta.rel.related_model
             related_field = model_meta.field
@@ -659,34 +552,50 @@ class NestedSerializer(serializers.ModelSerializer):
                 errors=relation_errors,
             )
 
-        if relation_errors:
-            errors[relation_name] = relation_errors
+            if relation_errors:
+                errors[relation_name] = relation_errors
 
-        # many to many (direct model association) fields get processed before the instance
+    def process_many_to_many_direct_fields(self, instance, many_to_many_direct_fields, errors):
         relation_errors = []
-        for relation_name, related_objects in many_to_many_direct_fields.items():
-            model_meta = getattr(self.Meta.model, relation_name)
-            related_model = model_meta.rel.model
-            related_serializer = None
-            if hasattr(self.fields[relation_name], "child"):
-                related_serializer = self.fields[relation_name].child
-            inverse_relation_name = model_meta.rel.name
 
-            self._manage_many_to_many_assignment(
-                instance,
-                related_objects,
-                related_model=related_model,
-                related_serializer=related_serializer,
-                intermediate_relation_name=relation_name,
-                intermediate_inverse_relation_name=inverse_relation_name,
-                errors=relation_errors,
-                through=False,
-            )
+        for relation_name, related_objects in many_to_many_direct_fields.items():
+            if hasattr(self.fields[relation_name], "child"):
+                model_meta = getattr(self.Meta.model, relation_name)
+                related_model = model_meta.rel.model
+                related_serializer = self.fields[relation_name].child
+                added_objects = []
+                assigned_pks = []
+                for related_object in related_objects:
+                    if 'pk' in related_object:
+                        # ToDo: Add meta parameter to select the behavior for non existing pk
+                        # Option 1: Raise exception
+                        # Option 2: Add as new object
+                        related_serializer.update(
+                            instance=related_model.objects.get(pk=related_object['pk']),
+                            validated_data=related_object
+                        )
+                        assigned_pks.append(related_object['pk'])
+                    else:
+                        obj = related_serializer.__class__(data=related_object)
+                        obj.is_valid()
+                        new_object = obj.save()
+                        added_objects.append(new_object)
+                        assigned_pks.append(new_object.pk)
+
+                # Add newly created objects to original instance
+                getattr(instance, relation_name).add(*added_objects)
+
+                # ToDo: Add meta parameter to select the behavior for removing items
+                # Option 1: Remove m2m relation
+                # Option 2: Remove m2m relation and related object
+                getattr(instance, relation_name).remove(
+                    *list(getattr(instance, relation_name).exclude(pk__in=assigned_pks))
+                )
 
         if relation_errors:
             errors[relation_name] = relation_errors
 
-        # one to one fields get processed before the instance
+    def process_one_to_one_fields(self, instance, one_to_one_fields, errors):
         for relation_name, related_object in one_to_one_fields.items():
             relation_errors = {}
             related_model = getattr(
@@ -705,14 +614,80 @@ class NestedSerializer(serializers.ModelSerializer):
                 errors=relation_errors,
             )
 
-        if relation_errors:
-            errors[relation_name] = relation_errors
+            if relation_errors:
+                errors[relation_name] = relation_errors
+
+    def extract_relation_data(self, validated_data):
+        """
+        Extract relation information defined on serializer Meta class
+        """
+        ralations = {
+            'one_to_one_fields': {},
+            'one_to_many_fields': {},
+            'many_to_one_fields': {},
+            'many_to_many_through_fields': {},
+            'many_to_many_direct_fields': {},
+        }
+
+        if hasattr(self.Meta, "one_to_many_fields"):
+            for relation in self.Meta.one_to_many_fields:
+                if relation in validated_data:
+                    ralations['one_to_many_fields'][relation] = validated_data.pop(relation)
+
+        if hasattr(self.Meta, "many_to_one_fields"):
+            for relation in self.Meta.many_to_one_fields:
+                if relation in validated_data:
+                    ralations['many_to_one_fields'][relation] = validated_data.pop(relation)
+
+        if hasattr(self.Meta, "many_to_many_through_fields"):
+            for relation in self.Meta.many_to_many_through_fields:
+                if relation in validated_data:
+                    ralations['many_to_many_through_fields'][relation] = validated_data.pop(relation)
+
+        if hasattr(self.Meta, "many_to_many_direct_fields"):
+            for relation in self.Meta.many_to_many_direct_fields:
+                if relation in validated_data:
+                    ralations['many_to_many_direct_fields'][relation] = validated_data.pop(relation)
+
+        if hasattr(self.Meta, "one_to_one_fields"):
+            for relation in self.Meta.one_to_one_fields:
+                if relation in validated_data:
+                    ralations['one_to_one_fields'][relation] = validated_data.pop(relation)
+
+        return ralations
+
+    def manage_assignments(self, validated_data, instance=None):
+        """
+        Remove the related data from validated_data and handle it separately
+
+        :param validated_data:
+        :param instance:
+        :return:
+        """
+        errors = {}
+        relations = self.extract_relation_data(validated_data)
+
+        # Fields to be processed before the instance
+        self.process_many_to_one_fields(validated_data, relations['many_to_one_fields'], errors)
+
+        # Store Instance
+        if instance:
+            instance = super().update(instance, validated_data)
+        else:
+            instance = super().create(validated_data)
+
+        # Fields to be processed after the instance
+        self.process__one_to_many_fields(instance, relations['one_to_many_fields'], errors)
+        self.process_many_to_many_through_fields(instance, relations['many_to_many_through_fields'], errors)
+        self.process_many_to_many_direct_fields(instance, relations['many_to_many_direct_fields'], errors)
+        self.process_one_to_one_fields(instance, relations['one_to_one_fields'], errors)
 
         if errors:
             raise ValidationError(errors, code="invalid")
-
         return instance
 
+
+class NestedCreateSerializer(BaseNestedSerializer):
     def create(self, validated_data):
         """
         Overwrite default create behaviour of serializers to handle nested relations
@@ -721,6 +696,8 @@ class NestedSerializer(serializers.ModelSerializer):
         """
         return self.manage_assignments(validated_data)
 
+
+class NestedUpdateSerializer(BaseNestedSerializer):
     def update(self, instance, validated_data):
         """
         Overwrite default update behaviour of serializers to handle nested relations
@@ -730,3 +707,7 @@ class NestedSerializer(serializers.ModelSerializer):
         :return:
         """
         return self.manage_assignments(validated_data, instance)
+
+
+class NestedSerializer(NestedCreateSerializer, NestedUpdateSerializer, serializers.ModelSerializer):
+    pass

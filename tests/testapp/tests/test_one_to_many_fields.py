@@ -716,13 +716,13 @@ class OneToManyFieldsTests(APITestCase):
         url = reverse('category-list')
         data = {
             "name": "Category 1",
-            "child_categories": [
+            "children": [
                 {
                     "name": "Category 2",
-                    "child_categories": [
+                    "children": [
                         {
                             "name": "Category 3",
-                            "child_categories": [],
+                            "children": [],
                         }
                     ],
                 }
@@ -733,8 +733,8 @@ class OneToManyFieldsTests(APITestCase):
         # Assert response
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         self.assertEqual(response.data['name'], 'Category 1')
-        self.assertEqual(response.data['child_categories'][0]['name'], 'Category 2')
-        self.assertEqual(response.data['child_categories'][0]['child_categories'][0]['name'], 'Category 3')
+        self.assertEqual(response.data['children'][0]['name'], 'Category 2')
+        self.assertEqual(response.data['children'][0]['children'][0]['name'], 'Category 3')
 
         # Assert data
         self.assertEqual(Category.objects.count(), 3)
@@ -754,13 +754,13 @@ class OneToManyFieldsTests(APITestCase):
         url = reverse('category-list')
         data = {
             "name": "Category 1",
-            "child_categories": [
+            "children": [
                 {
                     "name": "Category 2",
-                    "child_categories": [
+                    "children": [
                         {
                             "name": "Category 3",
-                            "child_categories": [],
+                            "children": [],
                         }
                     ],
                 }
@@ -777,8 +777,8 @@ class OneToManyFieldsTests(APITestCase):
         # Assert response
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data['name'], 'Category 1')
-        self.assertEqual(response.data['child_categories'][0]['name'], 'Category 2')
-        self.assertEqual(response.data['child_categories'][0]['child_categories'][0]['name'], 'Category 3')
+        self.assertEqual(response.data['children'][0]['name'], 'Category 2')
+        self.assertEqual(response.data['children'][0]['children'][0]['name'], 'Category 3')
 
         # Assert data
         self.assertEqual(Category.objects.count(), 3)
@@ -798,29 +798,29 @@ class OneToManyFieldsTests(APITestCase):
         url = reverse('category-list')
         data = {
             "name": "Category 1",
-            "child_categories": [
+            "children": [
                 {
                     "name": "Category 11",
-                    "child_categories": [
+                    "children": [
                         {
                             "name": "Category 111",
-                            "child_categories": [],
+                            "children": [],
                         }
                     ],
                 },
                 {
                     "name": "Category 12",
-                    "child_categories": [
+                    "children": [
                         {
                             "name": "Category 121",
-                            "child_categories": [
+                            "children": [
                                 {
                                     "name": "Category 1211",
-                                    "child_categories": [],
+                                    "children": [],
                                 },
                                 {
                                     "name": "Category 1212",
-                                    "child_categories": [],
+                                    "children": [],
                                 }
                             ],
                         }
@@ -828,7 +828,7 @@ class OneToManyFieldsTests(APITestCase):
                 },
                 {
                     "name": "Category 13",
-                    "child_categories": [],
+                    "children": [],
                 }
             ]
         }
@@ -837,16 +837,16 @@ class OneToManyFieldsTests(APITestCase):
         # Assert response
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         self.assertEqual(response.data['name'], 'Category 1')
-        self.assertEqual(response.data['child_categories'][0]['name'], 'Category 11')
-        self.assertEqual(response.data['child_categories'][1]['name'], 'Category 12')
-        self.assertEqual(response.data['child_categories'][2]['name'], 'Category 13')
-        self.assertEqual(response.data['child_categories'][0]['child_categories'][0]['name'], 'Category 111')
-        self.assertEqual(response.data['child_categories'][1]['child_categories'][0]['name'], 'Category 121')
+        self.assertEqual(response.data['children'][0]['name'], 'Category 11')
+        self.assertEqual(response.data['children'][1]['name'], 'Category 12')
+        self.assertEqual(response.data['children'][2]['name'], 'Category 13')
+        self.assertEqual(response.data['children'][0]['children'][0]['name'], 'Category 111')
+        self.assertEqual(response.data['children'][1]['children'][0]['name'], 'Category 121')
         self.assertEqual(
-            response.data['child_categories'][1]['child_categories'][0]['child_categories'][0]['name'], 'Category 1211'
+            response.data['children'][1]['children'][0]['children'][0]['name'], 'Category 1211'
         )
         self.assertEqual(
-            response.data['child_categories'][1]['child_categories'][0]['child_categories'][1]['name'], 'Category 1212'
+            response.data['children'][1]['children'][0]['children'][1]['name'], 'Category 1212'
         )
 
         # Assert data
@@ -882,29 +882,29 @@ class OneToManyFieldsTests(APITestCase):
         url = reverse('category-list')
         data = {
             "name": "Category 1",
-            "child_categories": [
+            "children": [
                 {
                     "name": "Category 11",
-                    "child_categories": [
+                    "children": [
                         {
                             "name": "Category 111",
-                            "child_categories": [],
+                            "children": [],
                         }
                     ],
                 },
                 {
                     "name": "Category 12",
-                    "child_categories": [
+                    "children": [
                         {
                             "name": "Category 121",
-                            "child_categories": [
+                            "children": [
                                 {
                                     "name": "Category 1211",
-                                    "child_categories": [],
+                                    "children": [],
                                 },
                                 {
                                     "name": "Category 1212",
-                                    "child_categories": [],
+                                    "children": [],
                                 }
                             ],
                         }
@@ -912,7 +912,7 @@ class OneToManyFieldsTests(APITestCase):
                 },
                 {
                     "name": "Category 13",
-                    "child_categories": [],
+                    "children": [],
                 }
             ]
         }
@@ -927,16 +927,16 @@ class OneToManyFieldsTests(APITestCase):
         # Assert response
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data['name'], 'Category 1')
-        self.assertEqual(response.data['child_categories'][0]['name'], 'Category 11')
-        self.assertEqual(response.data['child_categories'][1]['name'], 'Category 12')
-        self.assertEqual(response.data['child_categories'][2]['name'], 'Category 13')
-        self.assertEqual(response.data['child_categories'][0]['child_categories'][0]['name'], 'Category 111')
-        self.assertEqual(response.data['child_categories'][1]['child_categories'][0]['name'], 'Category 121')
+        self.assertEqual(response.data['children'][0]['name'], 'Category 11')
+        self.assertEqual(response.data['children'][1]['name'], 'Category 12')
+        self.assertEqual(response.data['children'][2]['name'], 'Category 13')
+        self.assertEqual(response.data['children'][0]['children'][0]['name'], 'Category 111')
+        self.assertEqual(response.data['children'][1]['children'][0]['name'], 'Category 121')
         self.assertEqual(
-            response.data['child_categories'][1]['child_categories'][0]['child_categories'][0]['name'], 'Category 1211'
+            response.data['children'][1]['children'][0]['children'][0]['name'], 'Category 1211'
         )
         self.assertEqual(
-            response.data['child_categories'][1]['child_categories'][0]['child_categories'][1]['name'], 'Category 1212'
+            response.data['children'][1]['children'][0]['children'][1]['name'], 'Category 1212'
         )
 
         # Assert data

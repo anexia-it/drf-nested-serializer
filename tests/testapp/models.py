@@ -9,6 +9,13 @@ class Book(models.Model):
         null=False,
     )
 
+    categories = models.ManyToManyField(
+        "Category",
+        related_name="books",
+        blank=True,
+        null=True,
+    )
+
 
 class Chapter(models.Model):
 
@@ -63,14 +70,7 @@ class Category(models.Model):
     parent = models.ForeignKey(
         "Category",
         on_delete=models.CASCADE,
-        related_name="child_categories",
-        null=True,
-        blank=True,
-    )
-
-    books = models.ManyToManyField(
-        "Book",
-        related_name="categories",
+        related_name="children",
         null=True,
         blank=True,
     )
