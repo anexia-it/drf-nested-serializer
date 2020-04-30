@@ -4,6 +4,9 @@ from rest_framework.exceptions import ValidationError
 
 
 __all__ = [
+    "BaseNestedSerializer",
+    "NestedCreateSerializer",
+    "NestedUpdateSerializer",
     "NestedSerializer",
 ]
 
@@ -159,9 +162,7 @@ class BaseNestedSerializer(serializers.ModelSerializer):
                 child_instance = child_serializer.create(validated_data=child)
                 getattr(instance, relation_name).add(child_instance)
 
-    def _manage_many_to_one_assignment(
-        self, related_object, related_model=None, related_serializer=None, errors=[],
-    ):
+    def _manage_many_to_one_assignment(self, related_object, related_model=None, related_serializer=None, errors=None):
         """
         Create the new relation if it doesn't already exist
         :param related_object:
@@ -172,6 +173,9 @@ class BaseNestedSerializer(serializers.ModelSerializer):
         """
         # Set the new relation (create if not exists yet)
         # (if pk is given, but object is gone/belongs to another instance, create a new one)
+        if errors is None:
+            errors = []
+
         related_instance = None
         try:
             if related_serializer:
@@ -505,7 +509,7 @@ class BaseNestedSerializer(serializers.ModelSerializer):
                 errors[relation_name] = relation_errors
                 raise ValidationError(errors, code="invalid")
 
-    def process__one_to_many_fields(self, instance, one_to_many_fields, errors):
+    def process_one_to_many_fields(self, instance, one_to_many_fields, errors):
         relation_errors = []
         for relation_name, related_objects in one_to_many_fields.items():
             related_model = getattr(self.Meta.model, relation_name).rel.related_model
@@ -677,7 +681,7 @@ class BaseNestedSerializer(serializers.ModelSerializer):
             instance = super().create(validated_data)
 
         # Fields to be processed after the instance
-        self.process__one_to_many_fields(instance, relations['one_to_many_fields'], errors)
+        self.process_one_to_many_fields(instance, relations['one_to_many_fields'], errors)
         self.process_many_to_many_through_fields(instance, relations['many_to_many_through_fields'], errors)
         self.process_many_to_many_direct_fields(instance, relations['many_to_many_direct_fields'], errors)
         self.process_one_to_one_fields(instance, relations['one_to_one_fields'], errors)
