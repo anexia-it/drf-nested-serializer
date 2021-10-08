@@ -1,6 +1,6 @@
 from rest_framework import serializers
 
-from django_rest_nested_serializer import NestedSerializer
+from drf_nested_serializer import NestedSerializer
 from .models import Book, Author, Chapter, Page, AuthorBook, Category
 
 
