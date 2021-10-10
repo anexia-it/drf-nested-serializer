@@ -7,7 +7,7 @@
 1. Download and install:
 
 ```bash
-pip install git+https://github.com/anexia-it/django-model-prefix@master
+pip install git+https://github.com/anexia-it/drf-nested-serializer@master
 ```
 
 2. Create the NestedSerializer in your Serializer where nested serialization is required:
